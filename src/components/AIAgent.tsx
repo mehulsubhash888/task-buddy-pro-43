@@ -5,7 +5,6 @@ import { Input } from "@/components/ui/input";
 import { buildSystemPrompt, getMemory, updateMemoryFromTask } from "@/lib/ai-memory";
 import { createTask, todayStr, daysDiff, type Task } from "@/lib/tasks";
 import { toast } from "sonner";
-import { supabase } from "@/integrations/supabase/client";
 import ReactMarkdown from "react-markdown";
 
 type Message = { role: "user" | "assistant" | "system"; content: string };
