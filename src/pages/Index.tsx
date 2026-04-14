@@ -62,6 +62,10 @@ export default function Index() {
     toast("Task removed");
   };
 
+  const handleUpdateTask = (updated: Task) => {
+    persist(tasks.map((t) => (t.id === updated.id ? updated : t)));
+  };
+
   if (!authChecked) return null;
   if (!user) return <AuthScreen onAuth={handleAuth} />;
 
@@ -90,7 +94,7 @@ export default function Index() {
       <main className="container max-w-5xl mx-auto px-4 py-6 space-y-6">
         <StatsCards tasks={tasks} />
         <ReminderBanner tasks={tasks} />
-        <TaskTable tasks={tasks} onComplete={handleComplete} onRemove={handleRemove} />
+        <TaskTable tasks={tasks} onComplete={handleComplete} onRemove={handleRemove} onUpdateTask={handleUpdateTask} />
       </main>
 
       <AIAgent username={user} onTaskCreated={handleAdd} existingTasks={tasks} />
