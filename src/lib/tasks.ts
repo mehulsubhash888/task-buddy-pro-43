@@ -1,5 +1,11 @@
 export type TaskStatus = "pending" | "completed";
 
+export interface SubTask {
+  id: string;
+  description: string;
+  status: TaskStatus;
+}
+
 export interface Task {
   id: string;
   description: string;
@@ -8,6 +14,7 @@ export interface Task {
   targetDate: string;
   completedDate: string | null;
   status: TaskStatus;
+  subtasks?: SubTask[];
 }
 
 const STORAGE_KEY = "taskmanager_tasks";
