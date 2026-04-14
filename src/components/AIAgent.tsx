@@ -1,5 +1,5 @@
-import { useState, useRef, useEffect } from "react";
-import { Bot, Send, Sparkles, X, Loader2 } from "lucide-react";
+import { useState, useRef, useEffect, useCallback } from "react";
+import { Bot, Send, Sparkles, X, Loader2, Mic, MicOff, Volume2, VolumeX } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { buildSystemPrompt, getMemory, updateMemoryFromTask } from "@/lib/ai-memory";
@@ -15,18 +15,88 @@ interface Props {
   existingTasks: Task[];
 }
 
+// Speech Recognition setup
+const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+
 export default function AIAgent({ username, onTaskCreated, existingTasks }: Props) {
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+  const [listening, setListening] = useState(false);
+  const [ttsEnabled, setTtsEnabled] = useState(true);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const recognitionRef = useRef<any>(null);
 
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [messages]);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      recognitionRef.current?.abort();
+      window.speechSynthesis.cancel();
+    };
+  }, []);
+
+  const speak = useCallback((text: string) => {
+    if (!ttsEnabled || !window.speechSynthesis) return;
+    window.speechSynthesis.cancel();
+    // Strip markdown / json blocks for cleaner speech
+    const clean = text
+      .replace(/```json[\s\S]*?```/g, "Task created.")
+      .replace(/[*_`#>\[\]]/g, "")
+      .replace(/\n+/g, " ")
+      .trim();
+    if (!clean) return;
+    const utterance = new SpeechSynthesisUtterance(clean);
+    utterance.rate = 1.05;
+    utterance.pitch = 1;
+    window.speechSynthesis.speak(utterance);
+  }, [ttsEnabled]);
+
+  const toggleListening = () => {
+    if (!SpeechRecognition) {
+      toast.error("Voice input not supported in this browser");
+      return;
+    }
+
+    if (listening) {
+      recognitionRef.current?.stop();
+      setListening(false);
+      return;
+    }
+
+    const recognition = new SpeechRecognition();
+    recognition.continuous = false;
+    recognition.interimResults = true;
+    recognition.maxAlternatives = 1;
+    // Empty string = auto-detect language
+    recognition.lang = "";
+
+    recognition.onresult = (event: any) => {
+      const transcript = Array.from(event.results)
+        .map((r: any) => r[0].transcript)
+        .join("");
+      setInput(transcript);
+    };
+
+    recognition.onend = () => setListening(false);
+    recognition.onerror = (e: any) => {
+      console.error("Speech error:", e.error);
+      setListening(false);
+      if (e.error !== "aborted") {
+        toast.error("Voice input error: " + e.error);
+      }
+    };
+
+    recognitionRef.current = recognition;
+    recognition.start();
+    setListening(true);
+  };
 
   const extractTasks = (text: string): Task[] => {
     const tasks: Task[] = [];
@@ -62,6 +132,12 @@ export default function AIAgent({ username, onTaskCreated, existingTasks }: Prop
   const sendMessage = async () => {
     if (!input.trim() || loading) return;
 
+    // Stop listening if active
+    if (listening) {
+      recognitionRef.current?.stop();
+      setListening(false);
+    }
+
     const userMsg: Message = { role: "user", content: input.trim() };
     const updatedMessages = [...messages, userMsg];
     setMessages(updatedMessages);
@@ -71,7 +147,6 @@ export default function AIAgent({ username, onTaskCreated, existingTasks }: Prop
     const memory = getMemory(username);
     const systemPrompt = buildSystemPrompt(memory);
 
-    // Add context about current tasks
     let taskContext = "";
     if (existingTasks.length > 0) {
       const pending = existingTasks.filter((t) => t.status === "pending");
@@ -139,7 +214,10 @@ export default function AIAgent({ username, onTaskCreated, existingTasks }: Prop
         }
       }
 
-      // Extract and create tasks from the response
+      // Speak the response
+      speak(assistantText);
+
+      // Extract and create tasks
       const newTasks = extractTasks(assistantText);
       if (newTasks.length > 0) {
         newTasks.forEach((t) => onTaskCreated(t));
@@ -184,9 +262,21 @@ export default function AIAgent({ username, onTaskCreated, existingTasks }: Prop
             Learning
           </span>
         </div>
-        <button onClick={() => setOpen(false)} className="text-muted-foreground hover:text-foreground">
-          <X className="h-4 w-4" />
-        </button>
+        <div className="flex items-center gap-1">
+          <button
+            onClick={() => {
+              setTtsEnabled(!ttsEnabled);
+              if (ttsEnabled) window.speechSynthesis.cancel();
+            }}
+            className="p-1 rounded hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
+            title={ttsEnabled ? "Mute voice" : "Enable voice"}
+          >
+            {ttsEnabled ? <Volume2 className="h-3.5 w-3.5" /> : <VolumeX className="h-3.5 w-3.5" />}
+          </button>
+          <button onClick={() => setOpen(false)} className="p-1 text-muted-foreground hover:text-foreground">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
       </div>
 
       {/* Messages */}
@@ -195,10 +285,10 @@ export default function AIAgent({ username, onTaskCreated, existingTasks }: Prop
           <div className="text-center text-muted-foreground text-sm py-8 space-y-2">
             <Sparkles className="h-8 w-8 mx-auto text-primary/40" />
             <p className="font-medium">Hi {username}! 👋</p>
-            <p className="text-xs">Tell me what you need to do and I'll create tasks for you. I learn your preferences over time!</p>
+            <p className="text-xs">Tell me what you need to do — type or use the 🎤 mic button. I learn your preferences over time!</p>
             <div className="text-xs space-y-1 pt-2">
               <p className="text-muted-foreground/70">Try: "Finish report by Friday"</p>
-              <p className="text-muted-foreground/70">Or: "Buy groceries tomorrow, need car"</p>
+              <p className="text-muted-foreground/70">Or tap 🎤 and speak in any language</p>
             </div>
           </div>
         )}
@@ -233,8 +323,18 @@ export default function AIAgent({ username, onTaskCreated, existingTasks }: Prop
       {/* Input */}
       <div className="p-3 border-t">
         <div className="flex gap-2">
+          <Button
+            size="icon"
+            variant={listening ? "destructive" : "outline"}
+            onClick={toggleListening}
+            disabled={loading}
+            className={`shrink-0 ${listening ? "animate-pulse" : ""}`}
+            title={listening ? "Stop listening" : "Voice input"}
+          >
+            {listening ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
+          </Button>
           <Input
-            placeholder="Tell me what to do..."
+            placeholder={listening ? "Listening..." : "Tell me what to do..."}
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && sendMessage()}
@@ -245,6 +345,11 @@ export default function AIAgent({ username, onTaskCreated, existingTasks }: Prop
             <Send className="h-4 w-4" />
           </Button>
         </div>
+        {listening && (
+          <p className="text-[10px] text-center text-muted-foreground mt-1 animate-pulse">
+            🎤 Speak now — any language
+          </p>
+        )}
       </div>
     </div>
   );
