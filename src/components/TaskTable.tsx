@@ -239,7 +239,7 @@ export default function TaskTable({ tasks, onComplete, onRemove, onUpdateTask }:
                   </TableRow>
                   {isExpanded && (
                     <TableRow key={`${task.id}-subtasks`} className="bg-muted/20 hover:bg-muted/20">
-                      <TableCell colSpan={8} className="py-2 px-4">
+                      <TableCell colSpan={9} className="py-2 px-4">
                         <div className="pl-10 space-y-1.5">
                           {subtasks.map((sub) => (
                             <div key={sub.id} className="flex items-center gap-2 group py-1">
