@@ -62,6 +62,10 @@ export default function Index() {
     toast("Task removed");
   };
 
+  const handleUpdateTask = (updated: Task) => {
+    persist(tasks.map((t) => (t.id === updated.id ? updated : t)));
+  };
+
   if (!authChecked) return null;
   if (!user) return <AuthScreen onAuth={handleAuth} />;
 
