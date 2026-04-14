@@ -168,6 +168,12 @@ export default function TaskTable({ tasks, onComplete, onRemove, onUpdateTask }:
                     style={{ animationDelay: `${i * 30}ms` }}
                   >
                     <TableCell className="font-mono text-xs text-muted-foreground">{i + 1}</TableCell>
+                    <TableCell className="px-2">
+                      <div className="flex items-center gap-1.5" title={priorityLabel}>
+                        <div className={`w-2.5 h-2.5 rounded-full ${priorityColor} shrink-0`} />
+                        <span className="text-[10px] text-muted-foreground hidden sm:inline whitespace-nowrap">{priorityLabel}</span>
+                      </div>
+                    </TableCell>
                     <TableCell>
                       <Button
                         variant="ghost"
