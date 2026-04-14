@@ -111,6 +111,7 @@ export default function TaskTable({ tasks, onComplete, onRemove, onUpdateTask }:
           <TableHeader>
             <TableRow className="bg-muted/50 hover:bg-muted/50">
               <TableHead className="w-12">#</TableHead>
+              <TableHead className="w-8"></TableHead>
               <TableHead className="w-10"></TableHead>
               <TableHead>Description</TableHead>
               <TableHead className="hidden md:table-cell">Resources</TableHead>
@@ -130,6 +131,35 @@ export default function TaskTable({ tasks, onComplete, onRemove, onUpdateTask }:
               const subtasks = task.subtasks || [];
               const completedSubs = subtasks.filter((s) => s.status === "completed").length;
 
+              // Priority color matching C reminder thresholds: overdue, 0, 1-3, 4-7, 8-14, >14
+              const priorityColor = task.status === "completed"
+                ? "bg-muted"
+                : isOverdue
+                ? "bg-[hsl(var(--priority-critical))]"
+                : isDueToday
+                ? "bg-[hsl(var(--priority-high))]"
+                : isDueSoon
+                ? "bg-[hsl(var(--priority-medium))]"
+                : days <= 7
+                ? "bg-[hsl(var(--priority-low))]"
+                : days <= 14
+                ? "bg-[hsl(var(--priority-safe))]"
+                : "bg-muted-foreground/30";
+
+              const priorityLabel = task.status === "completed"
+                ? "Done"
+                : isOverdue
+                ? `${Math.abs(days)}d overdue`
+                : isDueToday
+                ? "Due today"
+                : isDueSoon
+                ? `${days}d left`
+                : days <= 7
+                ? `${days}d left`
+                : days <= 14
+                ? `${days}d left`
+                : `${days}d left`;
+
               return (
                 <>
                   <TableRow
@@ -138,6 +168,12 @@ export default function TaskTable({ tasks, onComplete, onRemove, onUpdateTask }:
                     style={{ animationDelay: `${i * 30}ms` }}
                   >
                     <TableCell className="font-mono text-xs text-muted-foreground">{i + 1}</TableCell>
+                    <TableCell className="px-2">
+                      <div className="flex items-center gap-1.5" title={priorityLabel}>
+                        <div className={`w-2.5 h-2.5 rounded-full ${priorityColor} shrink-0`} />
+                        <span className="text-[10px] text-muted-foreground hidden sm:inline whitespace-nowrap">{priorityLabel}</span>
+                      </div>
+                    </TableCell>
                     <TableCell>
                       <Button
                         variant="ghost"
@@ -203,7 +239,7 @@ export default function TaskTable({ tasks, onComplete, onRemove, onUpdateTask }:
                   </TableRow>
                   {isExpanded && (
                     <TableRow key={`${task.id}-subtasks`} className="bg-muted/20 hover:bg-muted/20">
-                      <TableCell colSpan={8} className="py-2 px-4">
+                      <TableCell colSpan={9} className="py-2 px-4">
                         <div className="pl-10 space-y-1.5">
                           {subtasks.map((sub) => (
                             <div key={sub.id} className="flex items-center gap-2 group py-1">
