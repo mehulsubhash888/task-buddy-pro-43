@@ -111,6 +111,7 @@ export default function TaskTable({ tasks, onComplete, onRemove, onUpdateTask }:
           <TableHeader>
             <TableRow className="bg-muted/50 hover:bg-muted/50">
               <TableHead className="w-12">#</TableHead>
+              <TableHead className="w-8"></TableHead>
               <TableHead className="w-10"></TableHead>
               <TableHead>Description</TableHead>
               <TableHead className="hidden md:table-cell">Resources</TableHead>
@@ -129,6 +130,35 @@ export default function TaskTable({ tasks, onComplete, onRemove, onUpdateTask }:
               const isExpanded = expandedRows.has(task.id);
               const subtasks = task.subtasks || [];
               const completedSubs = subtasks.filter((s) => s.status === "completed").length;
+
+              // Priority color matching C reminder thresholds: overdue, 0, 1-3, 4-7, 8-14, >14
+              const priorityColor = task.status === "completed"
+                ? "bg-muted"
+                : isOverdue
+                ? "bg-[hsl(var(--priority-critical))]"
+                : isDueToday
+                ? "bg-[hsl(var(--priority-high))]"
+                : isDueSoon
+                ? "bg-[hsl(var(--priority-medium))]"
+                : days <= 7
+                ? "bg-[hsl(var(--priority-low))]"
+                : days <= 14
+                ? "bg-[hsl(var(--priority-safe))]"
+                : "bg-muted-foreground/30";
+
+              const priorityLabel = task.status === "completed"
+                ? "Done"
+                : isOverdue
+                ? `${Math.abs(days)}d overdue`
+                : isDueToday
+                ? "Due today"
+                : isDueSoon
+                ? `${days}d left`
+                : days <= 7
+                ? `${days}d left`
+                : days <= 14
+                ? `${days}d left`
+                : `${days}d left`;
 
               return (
                 <>

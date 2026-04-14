@@ -36,6 +36,12 @@
     --success: 160 60% 45%;
     --success-foreground: 0 0% 100%;
 
+    --priority-critical: 0 72% 55%;
+    --priority-high: 25 95% 53%;
+    --priority-medium: 38 92% 50%;
+    --priority-low: 200 60% 50%;
+    --priority-safe: 160 60% 45%;
+
     --border: 220 13% 88%;
     --input: 220 13% 88%;
     --ring: 220 72% 50%;
