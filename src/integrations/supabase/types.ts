@@ -14,7 +14,115 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      assigned_tasks: {
+        Row: {
+          assigned_by: string
+          assigned_date: string
+          assigned_to: string
+          completed_date: string | null
+          created_at: string
+          description: string
+          id: string
+          office_id: string
+          resources: string | null
+          status: string
+          target_date: string
+        }
+        Insert: {
+          assigned_by: string
+          assigned_date: string
+          assigned_to: string
+          completed_date?: string | null
+          created_at?: string
+          description: string
+          id?: string
+          office_id: string
+          resources?: string | null
+          status?: string
+          target_date: string
+        }
+        Update: {
+          assigned_by?: string
+          assigned_date?: string
+          assigned_to?: string
+          completed_date?: string | null
+          created_at?: string
+          description?: string
+          id?: string
+          office_id?: string
+          resources?: string | null
+          status?: string
+          target_date?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "assigned_tasks_office_id_fkey"
+            columns: ["office_id"]
+            isOneToOne: false
+            referencedRelation: "offices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      office_members: {
+        Row: {
+          id: string
+          is_online: boolean
+          joined_at: string
+          last_seen: string | null
+          office_id: string
+          username: string
+        }
+        Insert: {
+          id?: string
+          is_online?: boolean
+          joined_at?: string
+          last_seen?: string | null
+          office_id: string
+          username: string
+        }
+        Update: {
+          id?: string
+          is_online?: boolean
+          joined_at?: string
+          last_seen?: string | null
+          office_id?: string
+          username?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "office_members_office_id_fkey"
+            columns: ["office_id"]
+            isOneToOne: false
+            referencedRelation: "offices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      offices: {
+        Row: {
+          code: string
+          created_at: string
+          id: string
+          manager_username: string
+          name: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          id?: string
+          manager_username: string
+          name: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          id?: string
+          manager_username?: string
+          name?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

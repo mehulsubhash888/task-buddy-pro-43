@@ -1,18 +1,20 @@
 import { useState } from "react";
-import { signup, login, resetPassword } from "@/lib/local-auth";
+import { signup, login, resetPassword, type UserRole } from "@/lib/local-auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ClipboardList, LogIn, UserPlus, KeyRound } from "lucide-react";
+import { ClipboardList, LogIn, UserPlus, KeyRound, ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
 
 type Mode = "login" | "signup" | "reset";
 
 interface Props {
   onAuth: () => void;
+  role?: UserRole;
+  onBack?: () => void;
 }
 
-export default function AuthScreen({ onAuth }: Props) {
+export default function AuthScreen({ onAuth, role, onBack }: Props) {
   const [mode, setMode] = useState<Mode>("login");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -73,9 +75,18 @@ export default function AuthScreen({ onAuth }: Props) {
     }
   };
 
+  const roleLabel = role === "manager" ? "Manager" : role === "employee" ? "Employee" : "";
+
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
       <div className="w-full max-w-sm space-y-6 slide-up">
+        {/* Back button */}
+        {onBack && (
+          <button onClick={onBack} className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors">
+            <ArrowLeft className="h-4 w-4" /> Change role
+          </button>
+        )}
+
         {/* Logo */}
         <div className="flex flex-col items-center gap-3">
           <div className="rounded-2xl bg-primary p-3">
@@ -83,7 +94,8 @@ export default function AuthScreen({ onAuth }: Props) {
           </div>
           <div className="text-center">
             <h1 className="text-2xl font-bold">TaskFlow</h1>
-            <p className="text-sm text-muted-foreground">
+            {roleLabel && <p className="text-xs text-primary font-medium">{roleLabel} Account</p>}
+            <p className="text-sm text-muted-foreground mt-1">
               {mode === "login" && "Sign in to your account"}
               {mode === "signup" && "Create a new account"}
               {mode === "reset" && "Reset your password"}
