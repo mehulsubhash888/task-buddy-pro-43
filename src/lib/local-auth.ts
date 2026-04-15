@@ -3,6 +3,10 @@
 
 const AUTH_USERS_KEY = "taskflow_users";
 const AUTH_SESSION_KEY = "taskflow_session";
+const AUTH_ROLE_KEY = "taskflow_role";
+const AUTH_OFFICE_KEY = "taskflow_office_id";
+
+export type UserRole = "manager" | "employee";
 
 export interface LocalUser {
   username: string;
@@ -36,8 +40,26 @@ export function getSession(): string | null {
   return localStorage.getItem(AUTH_SESSION_KEY);
 }
 
+export function getRole(): UserRole | null {
+  return localStorage.getItem(AUTH_ROLE_KEY) as UserRole | null;
+}
+
+export function setRole(role: UserRole) {
+  localStorage.setItem(AUTH_ROLE_KEY, role);
+}
+
+export function getOfficeId(): string | null {
+  return localStorage.getItem(AUTH_OFFICE_KEY);
+}
+
+export function setOfficeId(id: string) {
+  localStorage.setItem(AUTH_OFFICE_KEY, id);
+}
+
 export function logout() {
   localStorage.removeItem(AUTH_SESSION_KEY);
+  localStorage.removeItem(AUTH_ROLE_KEY);
+  localStorage.removeItem(AUTH_OFFICE_KEY);
 }
 
 export async function signup(
