@@ -2,11 +2,10 @@ import { useState, useEffect } from "react";
 import { loadTasks, saveTasks, todayStr, type Task } from "@/lib/tasks";
 import { getSession, getRole, setRole as saveRole, logout, type UserRole } from "@/lib/local-auth";
 import AddTaskDialog from "@/components/AddTaskDialog";
-import ReminderBanner from "@/components/ReminderBanner";
-import TaskTable from "@/components/TaskTable";
+import { TaskList } from "@/components/TaskList"; // <-- Updated import
 import StatsCards from "@/components/StatsCards";
 import AuthScreen from "@/components/AuthScreen";
-import AIAgent from "@/components/AIAgent";
+import { AIAgent } from "@/components/AIAgent"; // <-- Updated import
 import RoleSelectScreen from "@/components/RoleSelectScreen";
 import ManagerOffice from "@/components/ManagerOffice";
 import EmployeeView from "@/components/EmployeeView";
@@ -61,21 +60,17 @@ export default function Index() {
     toast.success("Task added");
   };
 
-  const handleComplete = (id: string) => {
+  const handleToggleComplete = async (id: string, currentStatus: string) => {
+    const newStatus = currentStatus === "completed" ? "pending" : "completed";
     persist(
       tasks.map((t) =>
-        t.id === id ? { ...t, status: "completed" as const, completedDate: todayStr() } : t
+        t.id === id ? { ...t, status: newStatus as any, completedDate: newStatus === "completed" ? todayStr() : null } : t
       )
     );
-    toast.success("Task completed 🎉");
+    if (newStatus === "completed") toast.success("Task completed 🎉");
   };
 
-  const handleRemove = (id: string) => {
-    persist(tasks.filter((t) => t.id !== id));
-    toast("Task removed");
-  };
-
-  const handleUpdateTask = (updated: Task) => {
+  const handleUpdateTask = async (updated: Task) => {
     persist(tasks.map((t) => (t.id === updated.id ? updated : t)));
   };
 
@@ -90,51 +85,64 @@ export default function Index() {
   // Step 3: Employee view
   if (role === "employee") return <EmployeeView username={user} onLogout={handleLogout} />;
 
-  // Step 4: Manager view
+  // Step 4: Manager view with New Workspace Layout
   return (
-    <div className="min-h-screen bg-background">
-      <header className="border-b bg-card/80 backdrop-blur-sm sticky top-0 z-10">
-        <div className="container max-w-5xl mx-auto flex items-center justify-between h-16 px-4">
-          <div className="flex items-center gap-3">
-            <div className="rounded-lg bg-primary p-2">
-              <ClipboardList className="h-5 w-5 text-primary-foreground" />
+    <div className="flex h-screen w-screen overflow-hidden bg-background">
+      
+      {/* Main Content Area (Left side) */}
+      <div className="flex-1 flex flex-col h-full overflow-y-auto">
+        <header className="border-b bg-card/80 backdrop-blur-sm sticky top-0 z-10">
+          <div className="w-full max-w-5xl mx-auto flex items-center justify-between h-16 px-6">
+            <div className="flex items-center gap-3">
+              <div className="rounded-lg bg-primary p-2">
+                <ClipboardList className="h-5 w-5 text-primary-foreground" />
+              </div>
+              <div>
+                <h1 className="text-lg font-bold leading-none">Task Buddy Pro</h1>
+                <p className="text-xs text-muted-foreground">Manager: {user}</p>
+              </div>
             </div>
-            <div>
-              <h1 className="text-lg font-bold leading-none">TaskFlow</h1>
-              <p className="text-xs text-muted-foreground">Manager: {user}</p>
+            <div className="flex items-center gap-2">
+              <AddTaskDialog onAdd={handleAdd} />
+              <Button variant="outline" size="sm" onClick={handleLogout} className="gap-2">
+                <LogOut className="h-4 w-4" /> Sign Out
+              </Button>
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <AddTaskDialog onAdd={handleAdd} />
-            <Button variant="ghost" size="icon" onClick={handleLogout} title="Sign out">
-              <LogOut className="h-4 w-4" />
-            </Button>
-          </div>
-        </div>
-      </header>
+        </header>
 
-      <main className="container max-w-5xl mx-auto px-4 py-6 space-y-6">
-        <Tabs defaultValue="tasks">
-          <TabsList className="w-full">
-            <TabsTrigger value="tasks" className="flex-1 gap-1">
-              <ClipboardList className="h-3.5 w-3.5" /> My Tasks
-            </TabsTrigger>
-            <TabsTrigger value="offices" className="flex-1 gap-1">
-              <Building2 className="h-3.5 w-3.5" /> Offices
-            </TabsTrigger>
-          </TabsList>
-          <TabsContent value="tasks" className="space-y-6 mt-4">
-            <StatsCards tasks={tasks} />
-            <ReminderBanner tasks={tasks} />
-            <TaskTable tasks={tasks} onComplete={handleComplete} onRemove={handleRemove} onUpdateTask={handleUpdateTask} />
-          </TabsContent>
-          <TabsContent value="offices" className="mt-4">
-            <ManagerOffice username={user} />
-          </TabsContent>
-        </Tabs>
-      </main>
+        <main className="w-full max-w-5xl mx-auto px-6 py-6 space-y-6">
+          <Tabs defaultValue="tasks">
+            <TabsList className="w-full max-w-md">
+              <TabsTrigger value="tasks" className="flex-1 gap-2">
+                <ClipboardList className="h-4 w-4" /> Workspace
+              </TabsTrigger>
+              <TabsTrigger value="offices" className="flex-1 gap-2">
+                <Building2 className="h-4 w-4" /> Team Offices
+              </TabsTrigger>
+            </TabsList>
+            
+            <TabsContent value="tasks" className="space-y-6 mt-6">
+              <StatsCards tasks={tasks} />
+              {/* Replacing TaskTable with the new TaskList */}
+              <TaskList 
+                tasks={tasks as any} 
+                onToggleComplete={handleToggleComplete} 
+                onUpdateTask={handleUpdateTask} 
+              />
+            </TabsContent>
+            
+            <TabsContent value="offices" className="mt-6">
+              <ManagerOffice username={user} />
+            </TabsContent>
+          </Tabs>
+        </main>
+      </div>
 
-      <AIAgent username={user} onTaskCreated={handleAdd} existingTasks={tasks} />
+      {/* AI Agent Sidebar (Right side) */}
+      <div className="hidden lg:block w-[380px] h-full shrink-0 shadow-xl z-20">
+        <AIAgent />
+      </div>
     </div>
   );
 }
