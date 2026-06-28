@@ -1,289 +1,166 @@
-import { useState } from "react";
-import { Check, Trash2, ArrowUpDown, Plus, ChevronDown, ChevronRight } from "lucide-react";
-import { formatDate, daysDiff, sortTasks, type Task, type SubTask, type SortOption } from "@/lib/tasks";
-import { Button } from "@/components/ui/button";
+import React, { useState } from "react";
+import { Calendar, CheckCircle2, Circle, Clock, Paperclip, AlertCircle } from "lucide-react";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible";
 
-interface Props {
-  tasks: Task[];
-  onComplete: (id: string) => void;
-  onRemove: (id: string) => void;
-  onUpdateTask: (updated: Task) => void;
+// Define strict types matching your Supabase schema
+export interface Task {
+  id: string;
+  title: string;
+  description: string | null;
+  status: "pending" | "completed" | "overdue";
+  due_date: string | null;
+  assigned_to: string | null;
+  subtasks?: { id: string; title: string; is_completed: boolean }[];
+  resources?: { id: string; name: string; url: string }[];
 }
 
-export default function TaskTable({ tasks, onComplete, onRemove, onUpdateTask }: Props) {
-  const [sort, setSort] = useState<SortOption>("default");
-  const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
-  const [newSubtaskText, setNewSubtaskText] = useState<Record<string, string>>({});
-  const sorted = sortTasks(tasks, sort);
+interface TaskListProps {
+  tasks: Task[];
+  onToggleComplete: (id: string, currentStatus: string) => Promise<void>;
+  onUpdateTask: (task: Task) => Promise<void>;
+}
 
-  const toggleRow = (id: string) => {
-    setExpandedRows((prev) => {
-      const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
-      return next;
-    });
+export const TaskList: React.FC<TaskListProps> = ({ tasks, onToggleComplete, onUpdateTask }) => {
+  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+
+  // Grouping logic based on deadlines
+  const getGroupedTasks = () => {
+    const today = new Date().toISOString().split("T")[0];
+    return {
+      overdue: tasks.filter((t) => t.status === "overdue" || (t.due_date && t.due_date < today && t.status !== "completed")),
+      today: tasks.filter((t) => t.due_date === today && t.status !== "completed"),
+      upcoming: tasks.filter((t) => (!t.due_date || t.due_date > today) && t.status !== "completed"),
+      completed: tasks.filter((t) => t.status === "completed"),
+    };
   };
 
-  const addSubtask = (taskId: string) => {
-    const text = newSubtaskText[taskId]?.trim();
-    if (!text) return;
-    const task = tasks.find((t) => t.id === taskId);
-    if (!task) return;
-    const subtask: SubTask = { id: crypto.randomUUID(), description: text, status: "pending" };
-    onUpdateTask({ ...task, subtasks: [...(task.subtasks || []), subtask] });
-    setNewSubtaskText((prev) => ({ ...prev, [taskId]: "" }));
-  };
+  const groups = getGroupedTasks();
 
-  const toggleSubtask = (taskId: string, subtaskId: string) => {
-    const task = tasks.find((t) => t.id === taskId);
-    if (!task) return;
-    const subtasks = (task.subtasks || []).map((s) =>
-      s.id === subtaskId ? { ...s, status: s.status === "completed" ? "pending" as const : "completed" as const } : s
-    );
-    onUpdateTask({ ...task, subtasks });
-  };
-
-  const removeSubtask = (taskId: string, subtaskId: string) => {
-    const task = tasks.find((t) => t.id === taskId);
-    if (!task) return;
-    onUpdateTask({ ...task, subtasks: (task.subtasks || []).filter((s) => s.id !== subtaskId) });
-  };
-
-  if (tasks.length === 0) {
+  const renderSection = (title: string, taskGroup: Task[], icon: React.ReactNode) => {
+    if (taskGroup.length === 0) return null;
     return (
-      <div className="flex flex-col items-center justify-center py-20 text-muted-foreground fade-in">
-        <div className="rounded-full bg-muted p-6 mb-4">
-          <Check className="h-8 w-8" />
+      <div className="mb-8">
+        <div className="flex items-center gap-2 mb-3 text-muted-foreground font-medium text-sm px-2">
+          {icon}
+          <span>{title}</span>
+          <span className="text-xs bg-muted px-2 py-0.5 rounded-full font-mono">{taskGroup.length}</span>
         </div>
-        <p className="text-lg font-medium">No tasks yet</p>
-        <p className="text-sm">Click "Add Task" to get started</p>
+        <div className="space-y-1">
+          {taskGroup.map((task) => (
+            <div
+              key={task.id}
+              onClick={() => setSelectedTask(task)}
+              className="group flex items-center justify-between p-3.5 rounded-xl bg-card hover:bg-accent/40 border border-transparent hover:border-border transition-all cursor-pointer shadow-sm hover:shadow-md"
+            >
+              <div className="flex items-center gap-3 min-w-0">
+                <div
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onToggleComplete(task.id, task.status);
+                  }}
+                  className="text-muted-foreground hover:text-primary transition-colors shrink-0"
+                >
+                  {task.status === "completed" ? (
+                    <CheckCircle2 className="w-5 h-5 text-emerald-500 fill-emerald-500/10" />
+                  ) : (
+                    <Circle className="w-5 h-5 group-hover:scale-105 transition-transform" />
+                  )}
+                </div>
+                <span className={`text-sm font-semibold truncate tracking-tight ${task.status === "completed" ? "line-through text-muted-foreground" : "text-foreground"}`}>
+                  {task.title}
+                </span>
+              </div>
+
+              <div className="flex items-center gap-4 shrink-0 text-muted-foreground text-xs">
+                {task.resources && task.resources.length > 0 && (
+                  <div className="flex items-center gap-1 opacity-60 group-hover:opacity-100 transition-opacity">
+                    <Paperclip className="w-3.5 h-3.5" />
+                    <span>{task.resources.length}</span>
+                  </div>
+                )}
+                {task.due_date && (
+                  <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md font-medium ${task.status === "overdue" ? "bg-destructive/10 text-destructive" : "bg-muted text-muted-foreground"}`}>
+                    <Calendar className="w-3.5 h-3.5" />
+                    <span>{task.due_date}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
     );
-  }
+  };
 
   return (
-    <div className="space-y-4 fade-in">
-      <div className="flex items-center justify-between">
-        <p className="text-sm text-muted-foreground">
-          {tasks.filter((t) => t.status === "pending").length} pending · {tasks.filter((t) => t.status === "completed").length} completed
-        </p>
-        <div className="flex items-center gap-2">
-          <ArrowUpDown className="h-4 w-4 text-muted-foreground" />
-          <Select value={sort} onValueChange={(v) => setSort(v as SortOption)}>
-            <SelectTrigger className="w-[160px] h-8 text-xs">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="default">Default order</SelectItem>
-              <SelectItem value="dueDate">Due date</SelectItem>
-              <SelectItem value="assignedDate">Start date</SelectItem>
-              <SelectItem value="status">Status</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
+    <div className="w-full max-w-4xl mx-auto px-4 py-6">
+      {renderSection("Overdue", groups.overdue, <AlertCircle className="w-4 h-4 text-destructive" />)}
+      {renderSection("Due Today", groups.today, <Clock className="w-4 h-4 text-amber-500" />)}
+      {renderSection("Upcoming Workspace", groups.upcoming, <Calendar className="w-4 h-4 text-primary" />)}
+      {renderSection("Completed Tasks", groups.completed, <CheckCircle2 className="w-4 h-4 text-emerald-500" />)}
 
-      <div className="rounded-xl border bg-card overflow-hidden shadow-sm">
-        <Table>
-          <TableHeader>
-            <TableRow className="bg-muted/50 hover:bg-muted/50">
-              <TableHead className="w-12">#</TableHead>
-              <TableHead className="w-8"></TableHead>
-              <TableHead className="w-10"></TableHead>
-              <TableHead>Description</TableHead>
-              <TableHead className="hidden md:table-cell">Resources</TableHead>
-              <TableHead>Start</TableHead>
-              <TableHead>Due</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead className="w-12"></TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {sorted.map((task, i) => {
-              const days = daysDiff(task.targetDate);
-              const isOverdue = task.status === "pending" && days < 0;
-              const isDueToday = task.status === "pending" && days === 0;
-              const isDueSoon = task.status === "pending" && days > 0 && days <= 3;
-              const isExpanded = expandedRows.has(task.id);
-              const subtasks = task.subtasks || [];
-              const completedSubs = subtasks.filter((s) => s.status === "completed").length;
+      {/* Master-Detail Task Sheet View */}
+      <Sheet open={!!selectedTask} onOpenChange={(open) => !open && setSelectedTask(null)}>
+        {selectedTask && (
+          <SheetContent className="w-full sm:max-w-lg overflow-y-auto border-l border-border bg-background/95 backdrop-blur-md p-6">
+            <SheetHeader className="space-y-3 pb-6 border-b border-border">
+              <div className="flex items-center gap-2">
+                <Badge variant={selectedTask.status === "overdue" ? "destructive" : "secondary"} className="capitalize">
+                  {selectedTask.status}
+                </Badge>
+              </div>
+              <SheetTitle className="text-xl font-bold tracking-tight text-foreground">{selectedTask.title}</SheetTitle>
+              <SheetDescription className="text-sm text-muted-foreground/90 whitespace-pre-wrap leading-relaxed pt-2">
+                {selectedTask.description || "No description provided for this task."}
+              </SheetDescription>
+            </SheetHeader>
 
-              // Priority color matching C reminder thresholds: overdue, 0, 1-3, 4-7, 8-14, >14
-              const priorityColor = task.status === "completed"
-                ? "bg-muted"
-                : isOverdue
-                ? "bg-[hsl(var(--priority-critical))]"
-                : isDueToday
-                ? "bg-[hsl(var(--priority-high))]"
-                : isDueSoon
-                ? "bg-[hsl(var(--priority-medium))]"
-                : days <= 7
-                ? "bg-[hsl(var(--priority-low))]"
-                : days <= 14
-                ? "bg-[hsl(var(--priority-safe))]"
-                : "bg-muted-foreground/30";
+            {/* Subtasks Section */}
+            <div className="py-6 border-b border-border">
+              <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-4">Subtasks & Checklist</h4>
+              {selectedTask.subtasks && selectedTask.subtasks.length > 0 ? (
+                <div className="space-y-3">
+                  {selectedTask.subtasks.map((subtask) => (
+                    <div key={subtask.id} className="flex items-center gap-3 p-2 rounded-lg hover:bg-accent/30 transition-colors">
+                      <Checkbox id={subtask.id} checked={subtask.is_completed} />
+                      <label htmlFor={subtask.id} className={`text-sm font-medium leading-none cursor-pointer ${subtask.is_completed ? "line-through text-muted-foreground" : "text-foreground"}`}>
+                        {subtask.title}
+                      </label>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-xs text-muted-foreground italic">No subtasks created.</p>
+              )}
+            </div>
 
-              const priorityLabel = task.status === "completed"
-                ? "Done"
-                : isOverdue
-                ? `${Math.abs(days)}d overdue`
-                : isDueToday
-                ? "Due today"
-                : isDueSoon
-                ? `${days}d left`
-                : days <= 7
-                ? `${days}d left`
-                : days <= 14
-                ? `${days}d left`
-                : `${days}d left`;
-
-              return (
-                <>
-                  <TableRow
-                    key={task.id}
-                    className={`task-row-enter transition-colors ${task.status === "completed" ? "opacity-60" : ""}`}
-                    style={{ animationDelay: `${i * 30}ms` }}
-                  >
-                    <TableCell className="font-mono text-xs text-muted-foreground">{i + 1}</TableCell>
-                    <TableCell className="px-2">
-                      <div className="flex items-center gap-1.5" title={priorityLabel}>
-                        <div className={`w-2.5 h-2.5 rounded-full ${priorityColor} shrink-0`} />
-                        <span className="text-[10px] text-muted-foreground hidden sm:inline whitespace-nowrap">{priorityLabel}</span>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-7 w-7 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-                        onClick={() => onRemove(task.id)}
-                        title="Remove"
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={() => toggleRow(task.id)}
-                          className="p-0.5 rounded hover:bg-muted transition-colors"
-                        >
-                          {isExpanded ? <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" /> : <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />}
-                        </button>
-                        <span className={task.status === "completed" ? "line-through" : "font-medium"}>
-                          {task.description}
-                        </span>
-                        {subtasks.length > 0 && (
-                          <span className="text-xs text-muted-foreground ml-1">
-                            ({completedSubs}/{subtasks.length})
-                          </span>
-                        )}
-                      </div>
-                    </TableCell>
-                    <TableCell className="hidden md:table-cell text-muted-foreground text-sm max-w-[200px] truncate">
-                      {task.resources || "—"}
-                    </TableCell>
-                    <TableCell className="text-sm">{formatDate(task.assignedDate)}</TableCell>
-                    <TableCell className="text-sm">
-                      <span className={isOverdue ? "text-destructive font-semibold" : isDueToday ? "text-warning font-semibold" : isDueSoon ? "text-primary font-medium" : ""}>
-                        {formatDate(task.targetDate)}
-                      </span>
-                    </TableCell>
-                    <TableCell>
-                      {task.status === "completed" ? (
-                        <Badge variant="secondary" className="bg-success/10 text-success border-0 text-xs">
-                          Completed
-                        </Badge>
-                      ) : isOverdue ? (
-                        <Badge variant="destructive" className="text-xs">Overdue</Badge>
-                      ) : (
-                        <Badge variant="outline" className="text-xs">Pending</Badge>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      {task.status === "pending" && (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-7 w-7 text-success hover:text-success hover:bg-success/10"
-                          onClick={() => onComplete(task.id)}
-                          title="Mark complete"
-                        >
-                          <Check className="h-4 w-4" />
-                        </Button>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                  {isExpanded && (
-                    <TableRow key={`${task.id}-subtasks`} className="bg-muted/20 hover:bg-muted/20">
-                      <TableCell colSpan={9} className="py-2 px-4">
-                        <div className="pl-10 space-y-1.5">
-                          {subtasks.map((sub) => (
-                            <div key={sub.id} className="flex items-center gap-2 group py-1">
-                              <Checkbox
-                                checked={sub.status === "completed"}
-                                onCheckedChange={() => toggleSubtask(task.id, sub.id)}
-                                className="h-3.5 w-3.5"
-                              />
-                              <span className={`text-sm flex-1 ${sub.status === "completed" ? "line-through text-muted-foreground" : ""}`}>
-                                {sub.description}
-                              </span>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-5 w-5 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive"
-                                onClick={() => removeSubtask(task.id, sub.id)}
-                              >
-                                <Trash2 className="h-3 w-3" />
-                              </Button>
-                            </div>
-                          ))}
-                          <div className="flex items-center gap-2 pt-1">
-                            <Plus className="h-3.5 w-3.5 text-muted-foreground" />
-                            <Input
-                              placeholder="Add subtask..."
-                              value={newSubtaskText[task.id] || ""}
-                              onChange={(e) => setNewSubtaskText((prev) => ({ ...prev, [task.id]: e.target.value }))}
-                              onKeyDown={(e) => e.key === "Enter" && addSubtask(task.id)}
-                              className="h-7 text-sm border-dashed"
-                            />
-                            <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => addSubtask(task.id)}>
-                              Add
-                            </Button>
-                          </div>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  )}
-                </>
-              );
-            })}
-          </TableBody>
-        </Table>
-      </div>
+            {/* Attachments & Resources */}
+            <div className="py-6">
+              <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-4">Resources & Reference Links</h4>
+              {selectedTask.resources && selectedTask.resources.length > 0 ? (
+                <div className="grid grid-cols-1 gap-2">
+                  {selectedTask.resources.map((res) => (
+                    <a
+                      key={res.id}
+                      href={res.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="flex items-center gap-2.5 p-3 rounded-xl border border-border bg-muted/30 hover:bg-accent/50 transition-all text-sm font-medium text-foreground group"
+                    >
+                      <Paperclip className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" />
+                      <span className="truncate flex-1">{res.name}</span>
+                    </a>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-xs text-muted-foreground italic">No resources attached to this task.</p>
+              )}
+            </div>
+          </SheetContent>
+        )}
+      </Sheet>
     </div>
   );
-}
+};
